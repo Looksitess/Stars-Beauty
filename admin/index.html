@@ -610,6 +610,10 @@ async function loadBookings() {
   }
 
 
+  const { data: masters } = await supabaseClient.from("masters").select("id, full_name");
+  const masterNames = new Map((masters || []).map(master => [master.id, master.full_name]));
+  data.forEach(booking => { booking.master_name = masterNames.get(booking.master_id) || "Не обрано"; });
+
   updateStats(data);
 
   renderBookings(data);
@@ -1098,6 +1102,11 @@ function renderBookings(data) {
               ${escapeHtml(time)}
             </strong>
 
+          </div>
+
+          <div class="detail">
+            <div class="detail-title">Майстер</div>
+            <strong>${escapeHtml(booking.master_name || "Не обрано")}</strong>
           </div>
 
         </div>
