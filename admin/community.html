@@ -1,11 +1,43 @@
 <!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Відгуки та форум — Stars Beauty</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><style>
 *{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#fffdf7,#f4e3b8);font:15px Arial;color:#302719}.wrap{max-width:1050px;margin:auto;padding:20px}.panel,.item{background:#fffdf7;border:1px solid #e8d8b5;border-radius:16px;padding:18px;margin:14px 0}.tabs,.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{padding:10px 14px;border:0;border-radius:9px;background:#bb9139;color:white;font-weight:700;cursor:pointer}.btn.secondary{background:#eee3c6;color:#59451c}.muted{color:#786d5c}.status{font-size:12px;color:#8b671c}p{white-space:pre-wrap}@media(max-width:600px){.wrap{padding:12px}}</style></head><body><main class="wrap"><p><a href="index.html">← Адмін-панель</a></p><h1>Відгуки та форум Stars Beauty</h1><p class="muted">Перевіряйте повідомлення перед публікацією. Відхилені записи залишаються прихованими від відвідувачів.</p><div class="tabs"><button class="btn" onclick="showTab('reviews')">Відгуки</button><button class="btn secondary" onclick="showTab('topics')">Теми форуму</button><button class="btn secondary" onclick="showTab('posts')">Відповіді форуму</button></div><section id="reviews"></section><section id="topics" hidden></section><section id="posts" hidden></section></main><script>
 const db=window.supabase.createClient("https://evtamvfgftwymlttzvxh.supabase.co","sb_publishable__ERwIrzKtseUBZ60gRHefg_lh4E68K6");const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
-async function auth(){const s=await db.auth.getSession();if(!s.data.session){location.href="index.html";return false;}return true;}
+async function auth(){
+  const s=await db.auth.getSession();
+  if(!s.data.session){location.href="index.html";return false;}
+  if(s.data.session.user?.email?.toLowerCase()!=="timassites@gmail.com"){
+    await db.auth.signOut();
+    location.href="index.html?reason=wrong-account";
+    return false;
+  }
+  return true;
+}
 window.showTab=id=>{["reviews","topics","posts"].forEach(x=>document.getElementById(x).hidden=x!==id);};
-async function action(table,id,status){const r=await db.from(table).update({status}).eq("id",id);if(r.error)alert(r.error.message);load();}
-async function removeRow(table,id){if(!confirm("Видалити запис?"))return;const r=await db.from(table).delete().eq("id",id);if(r.error)alert(r.error.message);load();}
+async function action(table,id,status){
+  const r=await db.from(table).update({status}).eq("id",id).select("id").maybeSingle();
+  if(r.error){alert("Не вдалося змінити статус: "+r.error.message);return;}
+  if(!r.data){alert("Запис не змінено. Перевірте, що ви увійшли з Timassites@gmail.com.");return;}
+  await load();
+}
+async function removeRow(table,id){
+  if(!confirm("Видалити запис?"))return;
+  const r=await db.from(table).delete().eq("id",id).select("id").maybeSingle();
+  if(r.error){alert("Не вдалося видалити: "+r.error.message);return;}
+  if(!r.data){alert("Запис не видалено. Перевірте доступ адміністратора.");return;}
+  await load();
+}
 function card(x,table,type){return '<article class="item"><div class="status">'+esc(x.status)+'</div><h3>'+esc(type==="review"?x.customer_name:type==="topic"?x.title:x.author_name)+'</h3>'+(type==="review"?'<div>Оцінка: '+x.rating+'/5</div>':type==="topic"?'<b>'+esc(x.author_name)+'</b>':'<b>Тема: '+esc(x.topic_id)+'</b>')+'<p>'+esc(type==="review"?x.review_text:x.body)+'</p><small class="muted">'+new Date(x.created_at).toLocaleString("uk-UA")+'</small><div class="actions"><button class="btn" onclick="action(\''+table+'\',\''+x.id+'\',\'approved\')">Опублікувати</button><button class="btn secondary" onclick="action(\''+table+'\',\''+x.id+'\',\'rejected\')">Відхилити</button><button class="btn secondary" onclick="removeRow(\''+table+'\',\''+x.id+'\')">Видалити</button></div></article>';}
-async function load(){if(!await auth())return;const [r,t,p]=await Promise.all([db.from("stars_reviews").select("*").order("created_at",{ascending:false}),db.from("stars_forum_topics").select("*").order("created_at",{ascending:false}),db.from("stars_forum_posts").select("*").order("created_at",{ascending:false})]);document.getElementById("reviews").innerHTML=(r.data||[]).map(x=>card(x,"stars_reviews","review")).join("")||'<p>Відгуків поки немає.</p>';document.getElementById("topics").innerHTML=(t.data||[]).map(x=>card(x,"stars_forum_topics","topic")).join("")||'<p>Тем поки немає.</p>';document.getElementById("posts").innerHTML=(p.data||[]).map(x=>card(x,"stars_forum_posts","post")).join("")||'<p>Відповідей поки немає.</p>';if(r.error||t.error||p.error)alert((r.error||t.error||p.error).message);}
+async function load(){
+  if(!await auth())return;
+  const [r,t,p]=await Promise.all([
+    db.from("stars_reviews").select("*").order("created_at",{ascending:false}),
+    db.from("stars_forum_topics").select("*").order("created_at",{ascending:false}),
+    db.from("stars_forum_posts").select("*").order("created_at",{ascending:false})
+  ]);
+  const errors=[r.error,t.error,p.error].filter(Boolean);
+  if(errors.length) alert("Помилка завантаження: "+errors.map(x=>x.message).join(" | "));
+  document.getElementById("reviews").innerHTML=r.error?'<p>Не вдалося завантажити відгуки: '+esc(r.error.message)+'</p>':(r.data||[]).map(x=>card(x,"stars_reviews","review")).join("")||'<p>Відгуків поки немає.</p>';
+  document.getElementById("topics").innerHTML=t.error?'<p>Не вдалося завантажити теми: '+esc(t.error.message)+'</p>':(t.data||[]).map(x=>card(x,"stars_forum_topics","topic")).join("")||'<p>Тем поки немає.</p>';
+  document.getElementById("posts").innerHTML=p.error?'<p>Не вдалося завантажити відповіді: '+esc(p.error.message)+'</p>':(p.data||[]).map(x=>card(x,"stars_forum_posts","post")).join("")||'<p>Відповідей поки немає.</p>';
+}
 load();
 </script></body></html>
