@@ -441,16 +441,16 @@ async function checkAuth() {
     await supabaseClient.auth.getSession();
 
 
-  if (session) {
-
+  if (session && session.user?.email?.toLowerCase() === "timassites@gmail.com") {
     showAdmin();
-
     loadBookings();
-
   } else {
-
+    if (session) await supabaseClient.auth.signOut();
     showLogin();
-
+    if (new URLSearchParams(location.search).get("reason") === "wrong-account") {
+      document.getElementById("loginError").textContent =
+        "Для цієї адмін-панелі увійдіть саме з Timassites@gmail.com.";
+    }
   }
 }
 
@@ -518,30 +518,21 @@ async function login() {
   }
 
 
-  const {
-    error: authError
-  } =
-    await supabaseClient.auth.signInWithPassword({
-
-      email: email,
-
-      password: password
-
-    });
-
+  const { data, error: authError } =
+    await supabaseClient.auth.signInWithPassword({ email, password });
 
   if (authError) {
-
-    error.textContent =
-      "Помилка входу: " +
-      authError.message;
-
+    error.textContent = "Помилка входу: " + authError.message;
     return;
   }
 
+  if (data.user?.email?.toLowerCase() !== "timassites@gmail.com") {
+    await supabaseClient.auth.signOut();
+    error.textContent = "Цей акаунт не має доступу. Увійдіть з Timassites@gmail.com.";
+    return;
+  }
 
   showAdmin();
-
   loadBookings();
 }
 
