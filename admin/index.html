@@ -15,7 +15,7 @@
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #f5f1eb;
+      background: radial-gradient(circle at top left, #fff7d9 0%, #f7e6a8 48%, #efcf70 100%);
       color: #29241f;
     }
 
@@ -28,7 +28,7 @@
     .login {
       max-width: 430px;
       margin: 70px auto;
-      background: white;
+      background: rgba(255,255,255,.94);
       padding: 30px;
       border-radius: 20px;
       box-shadow: 0 10px 35px rgba(0,0,0,.08);
@@ -249,6 +249,24 @@
         grid-template-columns: 1fr;
       }
     }
+
+    .section-tabs { display:flex; gap:10px; flex-wrap:wrap; margin:0 0 20px; }
+    .section-tabs button { background:#fff8df; color:#72501b; border:1px solid #e6c66d; }
+    .section-tabs button.active { background:#a87925; color:#fff; }
+    .masters-panel { display:none; background:rgba(255,255,255,.94); border-radius:18px; padding:22px; box-shadow:0 5px 20px rgba(100,70,10,.09); }
+    .master-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0 22px; }
+    .master-form input { margin:0; }
+    .master-form button { background:#a87925; color:white; }
+    .master-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; }
+    .master-card { border:1px solid #ead9a8; border-radius:14px; padding:16px; background:#fffdf6; }
+    .master-card input { margin:8px 0; }
+    .master-card .master-actions { display:flex; gap:8px; margin-top:10px; }
+    .master-card button { flex:1; background:#a87925; color:#fff; }
+    .master-card button.secondary { background:#eee2c2; color:#5c451b; }
+    .master-status { display:inline-block; border-radius:20px; padding:5px 9px; background:#e9f4e7; color:#28643b; font-size:12px; }
+    .master-status.off { background:#eee; color:#666; }
+    .master-note { color:#766b52; font-size:14px; }
+    @media(max-width:600px) { .master-form { grid-template-columns:1fr; } }
   </style>
 </head>
 
@@ -305,6 +323,8 @@
         >
           ↻ Оновити
         </button>
+        <button class="refresh" onclick="showSection('masters')">Майстри</button>
+        <button class="refresh" onclick="showSection('bookings')">Заявки</button>
 
         <button
           class="logout"
@@ -365,9 +385,25 @@
     </div>
 
 
-    <div id="message"></div>
+    <div class="section-tabs">
+      <button id="tabBookings" class="active" onclick="showSection('bookings')">Заявки</button>
+      <button id="tabMasters" onclick="showSection('masters')">Майстри</button>
+    </div>
 
+    <div id="message"></div>
     <div id="bookings"></div>
+
+    <section id="mastersPanel" class="masters-panel">
+      <h2>Керування майстрами</h2>
+      <p class="master-note">Додавайте майстрів, змінюйте їхні дані або тимчасово вимикайте профіль.</p>
+      <form id="masterForm" class="master-form" onsubmit="addMaster(event)">
+        <input id="newMasterName" type="text" placeholder="Ім’я та прізвище майстра" required>
+        <input id="newMasterPhone" type="tel" placeholder="Телефон">
+        <input id="newMasterAvatar" type="url" placeholder="Посилання на фото (необов’язково)">
+        <button type="submit">＋ Додати майстра</button>
+      </form>
+      <div id="mastersList" class="master-list"><div class="loading">Завантаження майстрів...</div></div>
+    </section>
 
   </div>
 
@@ -615,6 +651,81 @@ function updateStats(data) {
       ).length;
   loadSchedule();
 }
+/* =========================
+   КЕРУВАННЯ МАЙСТРАМИ
+========================= */
+function showSection(section) {
+  const masters = section === "masters";
+  document.getElementById("bookings").style.display = masters ? "none" : "block";
+  document.getElementById("adminSchedule")?.style.display = masters ? "none" : "block";
+  document.getElementById("mastersPanel").style.display = masters ? "block" : "none";
+  document.getElementById("tabBookings").classList.toggle("active", !masters);
+  document.getElementById("tabMasters").classList.toggle("active", masters);
+  if (masters) loadMasters();
+}
+
+async function loadMasters() {
+  const list = document.getElementById("mastersList");
+  list.innerHTML = '<div class="loading">Завантаження майстрів...</div>';
+  const { data, error } = await supabaseClient
+    .from("masters").select("*").order("created_at", { ascending: false });
+  if (error) {
+    list.innerHTML = '<div class="empty">Не вдалося завантажити майстрів: ' + escapeHtml(error.message) + '</div>';
+    return;
+  }
+  if (!data.length) {
+    list.innerHTML = '<div class="empty">Майстрів ще не додано. Заповніть форму вище.</div>';
+    return;
+  }
+  list.innerHTML = data.map(master => `
+    <article class="master-card">
+      <span class="master-status ${master.active ? '' : 'off'}">${master.active ? 'Активний' : 'Вимкнений'}</span>
+      <input id="master-name-${master.id}" value="${escapeHtml(master.full_name)}" aria-label="Ім’я майстра">
+      <input id="master-phone-${master.id}" value="${escapeHtml(master.phone || '')}" placeholder="Телефон">
+      <input id="master-avatar-${master.id}" value="${escapeHtml(master.avatar_url || '')}" placeholder="Посилання на фото">
+      <div class="master-actions">
+        <button onclick="saveMaster('${master.id}')">Зберегти</button>
+        <button class="secondary" onclick="toggleMaster('${master.id}', ${!master.active})">${master.active ? 'Вимкнути' : 'Увімкнути'}</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+async function addMaster(event) {
+  event.preventDefault();
+  const full_name = document.getElementById("newMasterName").value.trim();
+  const phone = document.getElementById("newMasterPhone").value.trim();
+  const avatar_url = document.getElementById("newMasterAvatar").value.trim();
+  if (!full_name) return;
+  const { error } = await supabaseClient.from("masters").insert({ full_name, phone: phone || null, avatar_url: avatar_url || null });
+  if (error) {
+    alert("Не вдалося додати майстра: " + error.message);
+    return;
+  }
+  document.getElementById("masterForm").reset();
+  loadMasters();
+}
+
+async function saveMaster(id) {
+  const full_name = document.getElementById("master-name-" + id).value.trim();
+  const phone = document.getElementById("master-phone-" + id).value.trim();
+  const avatar_url = document.getElementById("master-avatar-" + id).value.trim();
+  if (!full_name) { alert("Вкажіть ім’я майстра."); return; }
+  const { error } = await supabaseClient.from("masters").update({
+    full_name, phone: phone || null, avatar_url: avatar_url || null, updated_at: new Date().toISOString()
+  }).eq("id", id);
+  if (error) { alert("Не вдалося зберегти зміни: " + error.message); return; }
+  loadMasters();
+}
+
+async function toggleMaster(id, active) {
+  const { error } = await supabaseClient.from("masters").update({
+    active, updated_at: new Date().toISOString()
+  }).eq("id", id);
+  if (error) { alert("Не вдалося змінити статус: " + error.message); return; }
+  loadMasters();
+}
+
 /* =========================
    РАСПИСАНИЕ
 ========================= */
