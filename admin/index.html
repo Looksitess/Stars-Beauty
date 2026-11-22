@@ -323,9 +323,7 @@
         >
           ↻ Оновити
         </button>
-        <button class="refresh" onclick="showSection('masters')">Майстри</button>
-        <button class="refresh" onclick="showSection('bookings')">Заявки</button>
-
+ 
         <button
           class="logout"
           onclick="logout()"
@@ -657,7 +655,8 @@ function updateStats(data) {
 function showSection(section) {
   const masters = section === "masters";
   document.getElementById("bookings").style.display = masters ? "none" : "block";
-  document.getElementById("adminSchedule")?.style.display = masters ? "none" : "block";
+  const schedulePanel = document.getElementById("adminSchedule");
+  if (schedulePanel) schedulePanel.style.display = masters ? "none" : "block";
   document.getElementById("mastersPanel").style.display = masters ? "block" : "none";
   document.getElementById("tabBookings").classList.toggle("active", !masters);
   document.getElementById("tabMasters").classList.toggle("active", masters);
