@@ -1,5 +1,5 @@
 <!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Відгуки та форум — Stars Beauty</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><style>
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#fffdf7,#f4e3b8);font:15px Arial;color:#302719}.wrap{max-width:1050px;margin:auto;padding:20px}.panel,.item{background:#fffdf7;border:1px solid #e8d8b5;border-radius:16px;padding:18px;margin:14px 0}.tabs,.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{padding:10px 14px;border:0;border-radius:9px;background:#bb9139;color:white;font-weight:700;cursor:pointer}.btn.secondary{background:#eee3c6;color:#59451c}.muted{color:#786d5c}.status{font-size:12px;color:#8b671c}p{white-space:pre-wrap}@media(max-width:600px){.wrap{padding:12px}}</style></head><body><main class="wrap"><p><a href="index.html">← Адмін-панель</a></p><h1>Відгуки та форум Stars Beauty</h1><p class="muted">Перевіряйте повідомлення перед публікацією. Відхилені записи залишаються прихованими від відвідувачів.</p><div class="tabs"><button class="btn" onclick="showTab('reviews')">Відгуки</button><button class="btn secondary" onclick="showTab('topics')">Теми форуму</button><button class="btn secondary" onclick="showTab('posts')">Відповіді форуму</button></div><section id="reviews"></section><section id="topics" hidden></section><section id="posts" hidden></section></main><script>
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#fffdf7,#f4e3b8);font:15px Arial;color:#302719}.wrap{max-width:1050px;margin:auto;padding:20px}.panel,.item{background:#fffdf7;border:1px solid #e8d8b5;border-radius:16px;padding:18px;margin:14px 0}.tabs,.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{padding:10px 14px;border:0;border-radius:9px;background:#bb9139;color:white;font-weight:700;cursor:pointer}.btn.secondary{background:#eee3c6;color:#59451c}.muted{color:#786d5c}.status{font-size:12px;color:#8b671c}p{white-space:pre-wrap}@media(max-width:600px){.wrap{padding:12px}}</style></head><body><main class="wrap"><p><a href="index.html">← Адмін-панель</a> · <a href="../forum.html">Форум</a> · <a href="../index.html">Сайт</a></p><h1>Відгуки та форум Stars Beauty</h1><p class="muted">Перевіряйте повідомлення перед публікацією. Відхилені записи залишаються прихованими від відвідувачів.</p><div class="tabs"><button class="btn" onclick="showTab('reviews')">Відгуки</button><button class="btn secondary" onclick="showTab('topics')">Теми форуму</button><button class="btn secondary" onclick="showTab('posts')">Відповіді форуму</button></div><section id="reviews"></section><section id="topics" hidden></section><section id="posts" hidden></section></main><script>
 const db=window.supabase.createClient("https://evtamvfgftwymlttzvxh.supabase.co","sb_publishable__ERwIrzKtseUBZ60gRHefg_lh4E68K6");const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 async function auth(){
   const s=await db.auth.getSession();
@@ -11,7 +11,7 @@ async function auth(){
   }
   return true;
 }
-window.showTab=id=>{["reviews","topics","posts"].forEach(x=>document.getElementById(x).hidden=x!==id);};
+window.showTab=id=>{["reviews","topics","posts"].forEach(x=>document.getElementById(x).hidden=x!==id);document.querySelectorAll(".tabs button").forEach((b,i)=>b.classList.toggle("secondary",["reviews","topics","posts"][i]!==id));};
 async function action(table,id,status){
   const r=await db.from(table).update({status}).eq("id",id).select("id").maybeSingle();
   if(r.error){alert("Не вдалося змінити статус: "+r.error.message);return;}
@@ -39,5 +39,6 @@ async function load(){
   document.getElementById("topics").innerHTML=t.error?'<p>Не вдалося завантажити теми: '+esc(t.error.message)+'</p>':(t.data||[]).map(x=>card(x,"stars_forum_topics","topic")).join("")||'<p>Тем поки немає.</p>';
   document.getElementById("posts").innerHTML=p.error?'<p>Не вдалося завантажити відповіді: '+esc(p.error.message)+'</p>':(p.data||[]).map(x=>card(x,"stars_forum_posts","post")).join("")||'<p>Відповідей поки немає.</p>';
 }
+const requestedTab=new URLSearchParams(location.search).get("tab");showTab(["reviews","topics","posts"].includes(requestedTab)?requestedTab:"reviews");
 load();
 </script></body></html>
