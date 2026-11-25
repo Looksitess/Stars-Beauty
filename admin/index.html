@@ -1243,16 +1243,11 @@ function escapeHtml(value) {
 supabaseClient.auth.onAuthStateChange(
   (_event, session) => {
 
-    if (session) {
-
+    if (session && session.user?.email?.toLowerCase() === "timassites@gmail.com") {
       showAdmin();
-
       loadBookings();
-
     } else {
-
       showLogin();
-
     }
 
   }
